@@ -4,4 +4,4 @@
 
 . ARR_Phase1_b.py generates random plans (i.e., fictitious 2012 Maryland congressional district maps) ensuring 2 black majority districts
 
-. 
+. ARR_Phase1_b_parallel.py performs ARR_Phase1_b.py (serial code) in parallel manner
