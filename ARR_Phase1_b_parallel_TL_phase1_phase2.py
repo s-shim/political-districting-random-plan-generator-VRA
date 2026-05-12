@@ -79,7 +79,8 @@ num_majority_black = 2
 majority_percent = 0.51
 
 os.makedirs('result1b_%s/process'%(initialSimID), exist_ok=True)
-os.makedirs('result1b_%s/solution'%(initialSimID), exist_ok=True)
+os.makedirs('result1b_%s/solution/phase1'%(initialSimID), exist_ok=True)
+os.makedirs('result1b_%s/solution/phase2'%(initialSimID), exist_ok=True)
 os.makedirs('result1b_%s/report'%(initialSimID), exist_ok=True)
 
 done0 = {}
@@ -191,11 +192,10 @@ def main(core, numCores, parameters,inputPackage, TL):
         for u in nodeList:
             for j in range(numDistricts):
                 halfX[u,j] = 0.5
-        
+                
+        # phase1
         seed = copy.deepcopy(halfX)
-        RMSD = RMSD_Evaluate(seed,numDistricts,nodeList)
-        
-        
+        RMSD = RMSD_Evaluate(seed,numDistricts,nodeList)               
         ptbX = PTBX(seed,numDistricts,G)
         
         # initial none-mpty districts 
@@ -235,11 +235,57 @@ def main(core, numCores, parameters,inputPackage, TL):
         toc = time.time()
         timeArray = [toc - tic]
         
+        phaseArray = [1]
+        tlArray = [TL]
+
+        processTable = pd.DataFrame(list(zip(coreArray,trialArray,errorArray,timeArray,phaseArray,tlArray)),columns =['Core','Trial','Error','Time','Phase','TL'])
+        processTable.to_csv(r'result1b_%s/process/process_b_%s.csv'%(initialSimID,simID), index = False)#Check
+        
+
+        if bestError < 0.0001:
+            b_district = {}
+            for j in range(numDistricts):
+                b_district[j] = 0
+            for j in range(num_majority_black):
+                b_district[b_list[j]] = 1
+
+            districtInverse = {}
+            simList = []
+            gsList = []
+            lenList = []
+            avgScore = {}
+            connList = []
+            vraList = []
+            for g in range(numDistricts):
+                vraList += [b_district[g]]
+                simList += [simID]
+                districtG = G.subgraph(bestDistrict[g])
+                connList += [nx.is_connected(districtG)]
+                gs, cen = gerrymanderScore(districtG)
+                gsList += [gs]
+                lenList += [len(bestDistrict[g])]
+                for u in bestDistrict[g]:
+                    districtInverse[u] = g
+                    avgScore[u] = gs / len(bestDistrict[g])
+            gsTable = pd.DataFrame(list(zip(simList,list(range(numDistricts)),vraList,connList,lenList,gsList)),columns =['Simulation','District','Black','Connected', 'Size','Gerry Score'])
+            gsTable.to_csv(r'result1b_%s/report/gerryscore_b_%s.csv'%(initialSimID,simID), index = False)#Check
+                    
+            districtArray = []
+            avgList = []
+            vraDList = []
+            for v in nodeList:                    
+                vraDList += [b_district[districtInverse[v]]]
+                districtArray += [districtInverse[v]]
+                avgList += [avgScore[v]]
+            feasSolution = pd.DataFrame(list(zip(nodeList,districtArray,vraDList,avgList)),columns =['Node','District','Black','avgScore'])
+            feasSolution.to_csv(r'result1b_%s/solution/phase1/randomPlan_MD2010_b_%s.csv'%(initialSimID,simID), index = False)#Check
+                           
+
         seed = copy.deepcopy(halfX)
         nLocal = 0
         tic = time.time()
         toc = time.time()
-        while toc - tic < TL:
+        while toc - tic < TL and bestError >= 0.0001:
             move = True
             trial += 1
 
@@ -298,8 +344,13 @@ def main(core, numCores, parameters,inputPackage, TL):
                     trialArray += [bestTrial]
                     errorArray += [bestError]
                     timeArray += [toc - tic]
-                    processTable = pd.DataFrame(list(zip(coreArray,trialArray,errorArray,timeArray)),columns =['Core','Trial','Error','Time'])
+
+                    phaseArray += [1]
+                    tlArray += [TL]
+            
+                    processTable = pd.DataFrame(list(zip(coreArray,trialArray,errorArray,timeArray,phaseArray,tlArray)),columns =['Core','Trial','Error','Time','Phase','TL'])
                     processTable.to_csv(r'result1b_%s/process/process_b_%s.csv'%(initialSimID,simID), index = False)#Check
+
 
                     if bestError < 0.0001:
                         b_district = {}
@@ -337,7 +388,7 @@ def main(core, numCores, parameters,inputPackage, TL):
                             districtArray += [districtInverse[v]]
                             avgList += [avgScore[v]]
                         feasSolution = pd.DataFrame(list(zip(nodeList,districtArray,vraDList,avgList)),columns =['Node','District','Black','avgScore'])
-                        feasSolution.to_csv(r'result1b_%s/solution/randomPlan_MD2010_b_%s.csv'%(initialSimID,simID), index = False)#Check
+                        feasSolution.to_csv(r'result1b_%s/solution/phase1/randomPlan_MD2010_b_%s.csv'%(initialSimID,simID), index = False)#Check
                                        
                         break
         
@@ -353,6 +404,171 @@ def main(core, numCores, parameters,inputPackage, TL):
                         seed[u,g] += alpha * 1
                         
             toc = time.time()
+
+
+        ### phase2
+        if bestError < 0.0001:
+            obj_random = {}
+            for d in range(numDistricts):
+                for u in nodeList:
+                    obj_random[u,d] = random.random()
+
+            obj_best = 0
+            for d in range(numDistricts):
+                for u in bestDistrict[d]:
+                    obj_best += obj_random[u,d]
+    
+            coreArray  += [core]
+            trialArray += [bestTrial]
+            errorArray += [obj_best]
+            toc = time.time()
+            timeArray += [toc - tic]
+
+            TL = max(TL,(toc - tic) * 4)
+            phaseArray += [2]
+            tlArray += [TL]
+    
+            processTable = pd.DataFrame(list(zip(coreArray,trialArray,errorArray,timeArray,phaseArray,tlArray)),columns =['Core','Trial','Error','Time','Phase','TL'])
+            processTable.to_csv(r'result1b_%s/process/process_b_%s.csv'%(initialSimID,simID), index = False)#Check
+
+
+            districtArray = []
+            avgList = []
+            vraDList = []
+            for v in nodeList:                    
+                vraDList += [b_district[districtInverse[v]]]
+                districtArray += [districtInverse[v]]
+                avgList += [avgScore[v]]
+            feasSolution = pd.DataFrame(list(zip(nodeList,districtArray,vraDList,avgList)),columns =['Node','District','Black','avgScore'])
+            feasSolution.to_csv(r'result1b_%s/solution/phase2/randomPlan_MD2010_b_%s.csv'%(initialSimID,simID), index = False)#Check
+
+            
+            nLocal = 0
+            toc = time.time()
+            while toc - tic < TL:
+                move = True
+                trial += 1
+    
+                ptbX = PTBX(seed,numDistricts,G)    
+                RMSD = RMSD_Evaluate(seed,numDistricts,nodeList)
+                
+                # initial none-mpty districts 
+                sortList = sorted(prodList, key=ptbXkey, reverse=True)
+                district = {}
+                doneNodes = []
+                done = copy.deepcopy(done0)
+                for j in range(numDistricts):
+                    district[j] = []
+                for j in range(numDistricts):
+                    if len(district[j]) == 0:
+                        for (u,k) in sortList:
+                            if k == j:
+                                district[j] += [u]
+                                done[u] = 1
+                                doneNodes += [u]
+                                break   
+                district = Rounding(nextPairFunction0,numDistricts,district,neighborsOf,done)   
+                totalError, pop_district, b_pop_district = EQERROR(district,population,b_population,min_pop,max_pop,numDistricts)
+                b_error = {}
+                for j in range(numDistricts):
+                    b_error[j] = pop_district[j] - (1 / majority_percent) * b_pop_district[j]   
+                b_list = sorted(list(range(numDistricts)),key=b_error2)
+                for j in range(num_majority_black):
+                    totalError += max(0,b_error[b_list[j]])
+                
+                same = True
+                for g in range(numDistricts):
+                    if same == False:
+                        break
+                    for u in bestDistrict[g]:
+                        if u not in district[g]:
+                            same = False
+                            break
+                if same == True:
+                    nLocal += 1
+                    if random.random() < min(1, nLocal/20) * RMSD:
+                        seed = copy.deepcopy(halfX)
+                        nLocal = 0
+                        move = False
+                else:
+                    nLocal = 0
+                    if totalError < 0.0001:
+
+                        obj_district = 0
+                        for d in range(numDistricts):
+                            for u in district[d]:
+                                obj_district += obj_random[u,d]
+                                
+                        if obj_best < obj_district:
+                            obj_best = obj_district
+
+                            bestTrial = trial
+                            bestDistrict = copy.deepcopy(district)
+                            b_list_best = copy.deepcopy(b_list)
+                            toc = time.time()
+        
+                            coreArray += [core]
+                            trialArray += [bestTrial]
+                            errorArray += [obj_best]
+                            timeArray += [toc - tic]
+                
+                            TL = max(TL,(toc - tic) * 4)
+                            phaseArray += [2]
+                            tlArray += [TL]
+                    
+                            processTable = pd.DataFrame(list(zip(coreArray,trialArray,errorArray,timeArray,phaseArray,tlArray)),columns =['Core','Trial','Error','Time','Phase','TL'])
+                            processTable.to_csv(r'result1b_%s/process/process_b_%s.csv'%(initialSimID,simID), index = False)#Check
+
+            
+                if move == True:
+                    alpha = 1 / (1 + math.exp(4 * RMSD))
+                    for g in range(numDistricts):
+                        for u in G.nodes():
+                            seed[u,g] = (1 - alpha) * seed[u,g]
+            
+                    for g in range(numDistricts):
+                        for u in bestDistrict[g]:
+                            seed[u,g] += alpha * 1
+                            
+                toc = time.time()
+
+
+            b_district = {}
+            for j in range(numDistricts):
+                b_district[j] = 0
+            for j in range(num_majority_black):
+                b_district[b_list_best[j]] = 1
+
+            districtInverse = {}
+            simList = []
+            gsList = []
+            lenList = []
+            avgScore = {}
+            connList = []
+            vraList = []
+            for g in range(numDistricts):
+                vraList += [b_district[g]]
+                simList += [simID]
+                districtG = G.subgraph(bestDistrict[g])
+                connList += [nx.is_connected(districtG)]
+                gs, cen = gerrymanderScore(districtG)
+                gsList += [gs]
+                lenList += [len(bestDistrict[g])]
+                for u in bestDistrict[g]:
+                    districtInverse[u] = g
+                    avgScore[u] = gs / len(bestDistrict[g])
+            gsTable = pd.DataFrame(list(zip(simList,list(range(numDistricts)),vraList,connList,lenList,gsList)),columns =['Simulation','District','Black','Connected', 'Size','Gerry Score'])
+            gsTable.to_csv(r'result1b_%s/report/gerryscore_b_%s.csv'%(initialSimID,simID), index = False)#Check
+                    
+            districtArray = []
+            avgList = []
+            vraDList = []
+            for v in nodeList:                    
+                vraDList += [b_district[districtInverse[v]]]
+                districtArray += [districtInverse[v]]
+                avgList += [avgScore[v]]
+            feasSolution = pd.DataFrame(list(zip(nodeList,districtArray,vraDList,avgList)),columns =['Node','District','Black','avgScore'])
+            feasSolution.to_csv(r'result1b_%s/solution/phase2/randomPlan_MD2010_b_%s.csv'%(initialSimID,simID), index = False)#Check
         
 
 def main2(arg):
@@ -364,7 +580,7 @@ if __name__ == '__main__':
     numCores = mp.cpu_count()
     p = mp.Pool(numCores)
     
-    TL = 3600 # time limit (s)
+    TL = 3600 * 2 # time limit (s)
 
     multiArgs = []  
     for core in range(numCores):
