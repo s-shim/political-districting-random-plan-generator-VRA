@@ -1,3 +1,6 @@
+.20260513: Run ARR_Phase1_b_parallel_TL_phase1_phase2.py
+..Two stopping criteria: Phase 1 by TL (Time Limit) and Phase 2 by grandTime (Line: )
+
 . lines_md_2012.csv and nodes_md_2012.csv came from the shape file at [ https://github.com/MQLib/MQLib ]
 
 . lines_md_2012_add.csv added 27 edges to make the adjacency graph and its subgraphs induced by the existing districts of 2012 Maryland congressional district map connected
