@@ -129,7 +129,7 @@ core = 0
 parameters = initialSimID,majority_percent, num_majority_black, prodList, numDistricts
 inputPackage = neighborsOf, G, nodeList, min_pop, max_pop, b_population, population, nextPairFunction0, done0    
 
-def main(core, numCores, parameters,inputPackage, TL):
+def main(core, numCores, parameters,inputPackage, TL, grandTL):
 
     initialSimID,majority_percent, num_majority_black, prodList, numDistricts = parameters
     neighborsOf, G, nodeList, min_pop, max_pop, b_population, population, nextPairFunction0, done0 = inputPackage    
@@ -237,8 +237,9 @@ def main(core, numCores, parameters,inputPackage, TL):
         
         phaseArray = [1]
         tlArray = [TL]
+        grandtlArray = [grandTL]
 
-        processTable = pd.DataFrame(list(zip(coreArray,trialArray,errorArray,timeArray,phaseArray,tlArray)),columns =['Core','Trial','Error','Time','Phase','TL'])
+        processTable = pd.DataFrame(list(zip(coreArray,trialArray,errorArray,timeArray,phaseArray,tlArray,grandtlArray)),columns =['Core','Trial','Error','Time','Phase','TL','grandTL'])
         processTable.to_csv(r'result1b_%s/process/process_b_%s.csv'%(initialSimID,simID), index = False)#Check
         
 
@@ -348,9 +349,10 @@ def main(core, numCores, parameters,inputPackage, TL):
                     phaseArray += [1]
                     tlArray += [TL]
             
-                    processTable = pd.DataFrame(list(zip(coreArray,trialArray,errorArray,timeArray,phaseArray,tlArray)),columns =['Core','Trial','Error','Time','Phase','TL'])
+                    grandtlArray += [grandTL]
+            
+                    processTable = pd.DataFrame(list(zip(coreArray,trialArray,errorArray,timeArray,phaseArray,tlArray,grandtlArray)),columns =['Core','Trial','Error','Time','Phase','TL','grandTL'])
                     processTable.to_csv(r'result1b_%s/process/process_b_%s.csv'%(initialSimID,simID), index = False)#Check
-
 
                     if bestError < 0.0001:
                         b_district = {}
@@ -424,11 +426,13 @@ def main(core, numCores, parameters,inputPackage, TL):
             toc = time.time()
             timeArray += [toc - tic]
 
-            TL = max(TL,(toc - tic) * 4)
+            TL = min(max(TL,(toc - tic) * 4), grandTL)
             phaseArray += [2]
             tlArray += [TL]
     
-            processTable = pd.DataFrame(list(zip(coreArray,trialArray,errorArray,timeArray,phaseArray,tlArray)),columns =['Core','Trial','Error','Time','Phase','TL'])
+            grandtlArray += [grandTL]
+    
+            processTable = pd.DataFrame(list(zip(coreArray,trialArray,errorArray,timeArray,phaseArray,tlArray,grandtlArray)),columns =['Core','Trial','Error','Time','Phase','TL','grandTL'])
             processTable.to_csv(r'result1b_%s/process/process_b_%s.csv'%(initialSimID,simID), index = False)#Check
 
 
@@ -512,7 +516,7 @@ def main(core, numCores, parameters,inputPackage, TL):
                             errorArray += [obj_best]
                             timeArray += [toc - tic]
                 
-                            TL = max(TL,(toc - tic) * 4)
+                            TL = min(max(TL,(toc - tic) * 4),grandTL)
                             phaseArray += [2]
                             tlArray += [TL]
                     
@@ -572,8 +576,8 @@ def main(core, numCores, parameters,inputPackage, TL):
         
 
 def main2(arg):
-    core, numCores, parameters,inputPackage, TL = arg
-    return main(core, numCores, parameters,inputPackage, TL)
+    core, numCores, parameters,inputPackage, TL, grandTL = arg
+    return main(core, numCores, parameters,inputPackage, TL, grandTL)
 
 
 if __name__ == '__main__':
@@ -581,10 +585,11 @@ if __name__ == '__main__':
     p = mp.Pool(numCores)
     
     TL = 3600 * 2 # time limit (s)
+    grandTL = 3600 * 24
 
     multiArgs = []  
     for core in range(numCores):
-        multiArgs += [(core, numCores, parameters, inputPackage, TL)]  
+        multiArgs += [(core, numCores, parameters, inputPackage, TL, grandTL)]  
 
     results = p.map(main2, multiArgs)
     
