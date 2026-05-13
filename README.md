@@ -1,5 +1,7 @@
 . 20260513: Run ARR_Phase1_b_parallel_TL_phase1_phase2.py
+
 .. Stopping criterion 1: Phase 1 by TL (Time Limit) 
+
 .. Stopping criterion 2: Phase 2 by grandTime (Line 588)
 
 
